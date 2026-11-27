@@ -537,5 +537,5 @@ Frage: ...`;
         <div style="padding:10px 0"><button class="btn">Idee speichern</button></div></form></div>`;
   }
 
-  return { Geschenke, Geschenk, seedVacation, Finanzen, Buchung, Stipendium, Steuern, Nachschlagen, Dokument, Urlaube, Urlaub, Dozierende, Kleiderschrank, Outfits, Brainstorming, Idee, avatar };
+  return { useTable, upload, openFile, Hero, Seg, Loading, eur, Geschenke, Geschenk, seedVacation, Finanzen, Buchung, Stipendium, Steuern, Nachschlagen, Dokument, Urlaube, Urlaub, Dozierende, Kleiderschrank, Outfits, Brainstorming, Idee, avatar };
 }

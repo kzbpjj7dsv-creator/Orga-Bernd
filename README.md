@@ -18,7 +18,12 @@ Läuft im Browser auf iPhone und Windows-Laptop; die Daten liegen in Supabase (R
 - Stipendium (Ausgaben, Erstattungen, Bescheide-Ordner) und Steuern (Jahresübersicht, CSV-Export)
 - Nachschlagen (PDF-Ablage, Inhaltsverzeichnis RD SH, Suche, Favoriten)
 - Urlaube (To-dos, Packliste, Wetter via Open-Meteo)
-- Dozierende mit Kleiderschrank, Bernd & Outfits, Brainstorming mit PICO/ECLIPSE-Baukasten
+- Dozierende mit Kleiderschrank, Bernd & Outfits, Brainstorming mit PICO/ECLIPSE (inkl. Claude-Übernahme)
+
+## Etappe 3
+- Einkaufsliste (Lidl, Aldi, Rewe, Drogeriemarkt), Dienst-Packliste, Zertifikate mit Ablauf-Erinnerung
+- Praxisanleiter (Azubis, Anleitungen, Fortbildungsstunden), Erste-Hilfe-Kurse mit Honorar, Karteikarten, Wochenrückblick
+- Push-Benachrichtigungen, privater Kalender-Feed (iCal), Geschenkideen, Desktop-/iPad-Ansicht
 
 ## Einrichtung
 1. `supabase/schema.sql` einmal im Supabase SQL Editor ausführen.

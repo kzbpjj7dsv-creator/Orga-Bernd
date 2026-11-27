@@ -4,6 +4,7 @@ import { SUPABASE_URL, SUPABASE_KEY, VAPID_PUBLIC } from '../config.js';
 import { MODULE_SEED, SHIFT_SEED, PRAESENZ_SEED, SCHRITTE, FORMAT_CHECK, PRUEFUNGSFORM, TODO_LISTEN, EVENT_TYPEN, BERND } from './data.js';
 import { berndSVG } from './bernd.js';
 import { makeMehr } from './mehr.js';
+import { makeMehr2 } from './mehr2.js';
 import { planeWoche } from './planer.js';
 
 const html = htm.bind(h);
@@ -113,6 +114,13 @@ const IC = {
   gift: '<rect x="3" y="8" width="18" height="13" rx="1"/><path d="M3 12h18M12 8v13M12 8s-2-5-5-4 0 4 5 4zM12 8s2-5 5-4 0 4-5 4z"/>',
   shirt: '<path d="M8 4h8l3 4-3 2v10H8V10L5 8z"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>',
+  cart: '<path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/>',
+  bag: '<rect x="4" y="7" width="16" height="13" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/>',
+  award: '<circle cx="12" cy="9" r="5"/><path d="M8.5 13 7 21l5-3 5 3-1.5-8"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.7-3.5 3.3-5.5 6.5-5.5s5.8 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.5c1.6.8 2.7 2.8 3 5.5"/>',
+  cross: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 7v10M7 12h10"/>',
+  cards: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   back: '<path d="M15 5l-7 7 7 7"/>', plus: '<path d="M12 5v14M5 12h14"/>', play: '<path d="M7 4l13 8-13 8z"/>',
   pause: '<path d="M9 5v14M15 5v14"/>', minus: '<path d="M5 12h14"/>', stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
 };
@@ -122,6 +130,7 @@ const Bernd = ({ mood, size = 96, outfit }) => html`<span style="display:flex" d
 const Back = ({ to, label }) => html`<button class=${"back" + (to === "#/mehr" ? " to-mehr" : "")} onClick=${() => to ? go(to) : history.back()}><${Icon} n="back" size=${18} />${label}</button>`;
 const CTX = { html, useState, useEffect, useMemo, sb, Icon, Bernd, Back, toast, go, fmtDate, isoDate, addDays, dayStart, daysUntil, pad };
 const M = makeMehr(CTX);
+const M2 = makeMehr2(CTX, M);
 
 // Bernd plant: zukünftige Bernd-Arbeitsphasen löschen und neu verteilen
 async function replan(st, setSt, quiet) {
@@ -245,7 +254,10 @@ function Login() {
 }
 
 // ---------------- Navigation ----------------
-const MEHR_LINKS = [['brainstorming', 'Brainstorming', 'bulb', ['idee']], ['finanzen', 'Finanzen', 'euro', ['buchung']], ['stipendium', 'Stipendium', 'wallet', []], ['steuern', 'Steuern', 'doc', []],
+const MEHR_LINKS = [['rueckblick', 'Wochenrückblick', 'chart', [], 'Bernds Bilanz der Woche'], ['einkauf', 'Einkaufsliste', 'cart', [], 'Lidl, Aldi, Rewe, Drogerie'],
+  ['packliste', 'Dienst-Packliste', 'bag', [], 'Pro Diensttyp'], ['karteikarten', 'Karteikarten', 'cards', [], 'Lernen in Pausen'],
+  ['praxisanleiter', 'Praxisanleiter', 'users', [], 'Azubis & Fortbildung'], ['ehkurse', 'Erste-Hilfe-Kurse', 'cross', ['ehkurs'], 'Kurse & Honorare'],
+  ['zertifikate', 'Zertifikate', 'award', [], 'Mit Ablauf-Erinnerung'], ['brainstorming', 'Brainstorming', 'bulb', ['idee']], ['finanzen', 'Finanzen', 'euro', ['buchung']], ['stipendium', 'Stipendium', 'wallet', []], ['steuern', 'Steuern', 'doc', []],
   ['dozierende', 'Dozierende', 'person', ['dozent']], ['nachschlagen', 'Nachschlagen', 'book', ['dokument']], ['urlaube', 'Urlaube', 'sun', ['urlaub']], ['geschenke', 'Geschenkideen', 'gift', ['geschenk']],
   ['outfits', 'Bernd & Outfits', 'shirt', []], ['einstellungen', 'Einstellungen', 'gear', []]];
 function Tabs({ route }) {
@@ -445,7 +457,7 @@ function Kalender({ st, api }) {
   <button class="btn ghost small" onClick=${() => api.replan(false)}>Bernd neu planen lassen</button>
   <span class="h2">${fmtDate(sel?.day || new Date())}</span>
   ${(() => { const ds = dayStart(selDay), de = addDays(ds, 1); const list = evs.filter(e => e._e > ds && e._s < de); return list.length ? list.map(e => html`<${EventRow} e=${e} onClick=${() => setSel({ day: selDay, ev: e })} />`) : html`<div class="card small">Keine Einträge.</div>`; })()}
-  ${sel?.ev && html`<div class="card col"><span class="b">${sel.ev.titel || EVENT_TYPEN[sel.ev.typ]?.label}</span><span class="small">${hm(sel.ev._s)}–${hm(sel.ev._e)}${sel.ev.ort ? ' · ' + sel.ev.ort : ''}</span><button class="btn small ghost" onClick=${() => del(sel.ev)}>Löschen</button></div>`}
+  ${sel?.ev && html`<div class="card col"><span class="b">${sel.ev.titel || EVENT_TYPEN[sel.ev.typ]?.label}</span><span class="small">${hm(sel.ev._s)}–${hm(sel.ev._e)}${sel.ev.ort ? ' · ' + sel.ev.ort : ''}</span>${sel.ev.typ === 'erste_hilfe' && html`<a class="btn small" href=${'#/ehkurs/' + sel.ev.id}>Kurs-Details & Honorar</a>`}${sel.ev.typ === 'geburtstag' && html`<a class="btn small" href=${'#/geschenk/' + sel.ev.id}>Geschenkideen</a>`}<button class="btn small ghost" onClick=${() => del(sel.ev)}>Löschen</button></div>`}
   </div>`;
 }
 
@@ -605,11 +617,10 @@ function Timer({ st, api, taskId }) {
 
 // ---------------- Mehr & Einstellungen ----------------
 function Mehr() {
-  const tiles = [['Brainstorming', 'Ideen → PICO & ECLIPSE', '#/brainstorming', 'auf'], ['Finanzen', 'Einnahmen, Ausgaben, Sparen', '#/finanzen', 'kal'], ['Stipendium', 'Ausgaben & Bescheide', '#/stipendium', 'stud'],
-    ['Steuern', 'Werbungskosten sammeln', '#/steuern', 'auf'], ['Dozierende', 'Kleiderschrank & Sprüche', '#/dozierende', 'stud'], ['Nachschlagen', 'Handlungsempfehlungen RD SH', '#/nachschlagen', 'auf'],
-    ['Urlaube', 'Reisen planen', '#/urlaube', 'kal'], ['Geschenkideen', 'Zu jedem Geburtstag', '#/geschenke', 'home'], ['Bernd & Outfits', 'Freigeschaltete Looks', '#/outfits', 'home'], ['Einstellungen', 'Zeiten, Bernd, Aussehen', '#/einstellungen', 'mehr']];
+  const SUB = { brainstorming: 'Ideen → PICO & ECLIPSE', finanzen: 'Einnahmen, Ausgaben, Sparen', stipendium: 'Ausgaben & Bescheide', steuern: 'Werbungskosten sammeln', dozierende: 'Kleiderschrank & Sprüche',
+    nachschlagen: 'Handlungsempfehlungen RD SH', urlaube: 'Reisen planen', geschenke: 'Zu jedem Geburtstag', outfits: 'Freigeschaltete Looks', einstellungen: 'Zeiten, Bernd, Aussehen' };
   return html`<div class="hero"><h1>Mehr</h1><span class="sub">Alles, was nicht in die anderen Reiter passt</span></div>
-  <div class="content"><div class="tiles">${tiles.map(([n, s, href, ic]) => html`<a class="card tile" href=${href}><span class="ic"><${Icon} n=${ic} /></span><span class="b" style="font-size:14px">${n}</span><span class="tiny">${s}</span></a>`)}</div>
+  <div class="content"><div class="tiles">${MEHR_LINKS.map(([r, n, ic, , sub]) => html`<a class="card tile" href=${'#/' + r}><span class="ic"><${Icon} n=${ic} /></span><span class="b" style="font-size:14px">${n}</span><span class="tiny">${sub || SUB[r] || ''}</span></a>`)}</div>
     <button class="btn ghost" onClick=${() => sb.auth.signOut()}>Abmelden</button></div>`;
 }
 function KalAbo({ st, api }) {
@@ -677,6 +688,8 @@ function Main({ user }) {
     nachschlagen: () => html`<${M.Nachschlagen} />`, dokument: () => html`<${M.Dokument} id=${a1} />`, urlaube: () => html`<${M.Urlaube} />`, urlaub: () => html`<${M.Urlaub} id=${a1} />`,
     dozierende: () => html`<${M.Dozierende} ...${P} />`, dozent: () => html`<${M.Kleiderschrank} ...${P} id=${a1} />`, outfits: () => html`<${M.Outfits} ...${P} />`,
     brainstorming: () => html`<${M.Brainstorming} ...${P} />`, idee: () => html`<${M.Idee} ...${P} id=${a1} />`,
+    einkauf: () => html`<${M2.Einkauf} />`, packliste: () => html`<${M2.Packliste} ...${P} />`, zertifikate: () => html`<${M2.Zertifikate} />`, praxisanleiter: () => html`<${M2.Praxisanleiter} ...${P} />`,
+    ehkurse: () => html`<${M2.EHKurse} ...${P} />`, ehkurs: () => html`<${M2.EHKurs} ...${P} id=${a1} />`, karteikarten: () => html`<${M2.Karteikarten} ...${P} />`, rueckblick: () => html`<${M2.Rueckblick} ...${P} />`,
     geschenke: () => html`<${M.Geschenke} ...${P} />`, geschenk: () => html`<${M.Geschenk} ...${P} id=${a1} />`,
   }[route] || (() => html`<${Home} ...${P} />`);
   return html`<div class="app">${view()}</div><${Tabs} route=${route} />`;

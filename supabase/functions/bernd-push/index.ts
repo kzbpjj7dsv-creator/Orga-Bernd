@@ -73,6 +73,29 @@ Deno.serve(async (req) => {
       if (L.day === 1) msgs.push({ key: `gehalt:${L.date}`, title: "Bernd", body: line("gehalt", frech), url: "./#/buchung" });
     }
 
+    // Abend vor einem Dienst (20 Uhr): Packliste
+    if (L.hour === 20) {
+      const morgen = local(new Date(now.getTime() + 864e5)).date;
+      const { data: ds } = await sb.from("events").select("id,titel,start_at").eq("user_id", uid).eq("typ", "dienst")
+        .gte("start_at", new Date(now.getTime() + 2 * 36e5).toISOString()).lte("start_at", new Date(now.getTime() + 36 * 36e5).toISOString());
+      for (const d of ds || []) if (local(new Date(d.start_at)).date === morgen)
+        msgs.push({ key: `pack:${d.id}`, title: `Morgen ${d.titel || "Dienst"}`, body: frech >= 3 ? "Packliste checken! Ohne Ladekabel bist du morgen nur halb so lustig." : "Denk an deine Packliste für morgen.", url: "./#/packliste" });
+    }
+    // Zertifikate: 90, 30, 7 Tage vor Ablauf (9 Uhr)
+    if (L.hour === 9) {
+      const { data: zs } = await sb.from("certificates").select("id,titel,gueltig_bis").eq("user_id", uid).not("gueltig_bis", "is", null);
+      for (const z of zs || []) { const d = daysBetween(L.date, z.gueltig_bis);
+        if ([90, 30, 7].includes(d)) msgs.push({ key: `zert${d}:${z.id}`, title: "Zertifikat läuft ab", body: `${z.titel} ist nur noch ${d} Tage gültig. ${d <= 7 ? "Jetzt aber schnell!" : "Rechtzeitig um die Verlängerung kümmern."}`, url: "./#/zertifikate" }); }
+    }
+    // Wochenrückblick: Sonntag 18 Uhr
+    const wd = new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" }).format(now);
+    if (wd === "Sun" && L.hour === 18) {
+      const mo = new Date(now.getTime() - 6 * 864e5).toISOString();
+      const { data: ws } = await sb.from("work_sessions").select("arbeit_min").eq("user_id", uid).gte("start_at", mo);
+      const min = (ws || []).reduce((a: number, w: any) => a + (w.arbeit_min || 0), 0);
+      msgs.push({ key: `woche:${L.date}`, title: "Dein Wochenrückblick", body: min >= 600 ? `${Math.round(min / 60)} Stunden gearbeitet. Ich bin beeindruckt!` : min > 0 ? `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")} Stunden diese Woche. Da geht noch was.` : "Diese Woche keine einzige Arbeitsphase. Wir müssen reden.", url: "./#/rueckblick" });
+    }
+
     for (const m of msgs) {
       const { error: dup } = await sb.from("notification_log").insert({ user_id: uid, key: m.key });
       if (dup) continue; // schon gesendet

@@ -327,3 +327,16 @@ begin
 end $$;
 drop trigger if exists block_signups on auth.users;
 create trigger block_signups before insert on auth.users for each row execute function private.block_signups();
+
+-- ---------- Etappe 3: Einkauf, Packlisten, Zertifikate, Praxisanleiter, EH-Kurse, Karteikarten ----------
+create table if not exists shopping_items (id uuid primary key default gen_random_uuid(), user_id uuid not null default auth.uid() references auth.users on delete cascade, laden text not null, kategorie text, text text not null, menge text, erledigt boolean not null default false, created_at timestamptz default now());
+create table if not exists shopping_favorites (id uuid primary key default gen_random_uuid(), user_id uuid not null default auth.uid() references auth.users on delete cascade, laden text not null, kategorie text, text text not null, anzahl int not null default 1, unique (user_id, laden, text));
+create table if not exists packlisten (id uuid primary key default gen_random_uuid(), user_id uuid not null default auth.uid() references auth.users on delete cascade, kuerzel text not null, text text not null, sort int default 0, created_at timestamptz default now());
+create table if not exists certificates (id uuid primary key default gen_random_uuid(), user_id uuid not null default auth.uid() references auth.users on delete cascade, titel text not null, aussteller text, erworben date, gueltig_bis date, datei_path text, notiz text, created_at timestamptz default now());
+create table if not exists pa_azubis (id uuid primary key default gen_random_uuid(), user_id uuid not null default auth.uid() references auth.users on delete cascade, name text not null, jahr int, notiz text, aktiv boolean not null default true, created_at timestamptz default now());
+create table if not exists pa_anleitungen (id uuid primary key default gen_random_uuid(), user_id uuid not null default auth.uid() references auth.users on delete cascade, azubi_id uuid references pa_azubis on delete cascade, datum date not null default current_date, dauer_min int, thema text, notiz text, created_at timestamptz default now());
+create table if not exists pa_fortbildungen (id uuid primary key default gen_random_uuid(), user_id uuid not null default auth.uid() references auth.users on delete cascade, datum date not null default current_date, titel text not null, stunden numeric not null, datei_path text, created_at timestamptz default now());
+create table if not exists eh_kurse (id uuid primary key default gen_random_uuid(), user_id uuid not null default auth.uid() references auth.users on delete cascade, event_id uuid not null unique references events on delete cascade, teilnehmer int, honorar numeric, material jsonb not null default '[]'::jsonb, honorar_gebucht boolean not null default false, notiz text);
+create table if not exists flashcards (id uuid primary key default gen_random_uuid(), user_id uuid not null default auth.uid() references auth.users on delete cascade, module_id uuid references modules on delete cascade, vorne text not null, hinten text not null, box int not null default 1, faellig date not null default current_date, created_at timestamptz default now());
+alter table profiles add column if not exists ical_token text unique;
+-- RLS/Grants wie oben für alle neuen Tabellen; Bucket 'nachweise' analog zu den anderen Buckets.
