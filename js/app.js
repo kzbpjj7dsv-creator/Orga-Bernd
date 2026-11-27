@@ -103,13 +103,23 @@ const IC = {
   stud: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/>',
   auf: '<path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>',
   mehr: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+  bulb: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/>',
+  euro: '<path d="M18 7a7 7 0 1 0 0 10"/><path d="M4 10h9M4 14h9"/>',
+  wallet: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/>',
+  doc: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  person: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
+  book: '<path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-4a2 2 0 0 0-2 2v12h6z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>',
+  gift: '<rect x="3" y="8" width="18" height="13" rx="1"/><path d="M3 12h18M12 8v13M12 8s-2-5-5-4 0 4 5 4zM12 8s2-5 5-4 0 4-5 4z"/>',
+  shirt: '<path d="M8 4h8l3 4-3 2v10H8V10L5 8z"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>',
   back: '<path d="M15 5l-7 7 7 7"/>', plus: '<path d="M12 5v14M5 12h14"/>', play: '<path d="M7 4l13 8-13 8z"/>',
   pause: '<path d="M9 5v14M15 5v14"/>', minus: '<path d="M5 12h14"/>', stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
 };
 const Icon = ({ n, size = 20, color = 'currentColor', fill = 'none' }) =>
   html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill=${fill} stroke=${color} stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: IC[n] }}></svg>`;
 const Bernd = ({ mood, size = 96, outfit }) => html`<span style="display:flex" dangerouslySetInnerHTML=${{ __html: berndSVG(mood, size, outfit) }}></span>`;
-const Back = ({ to, label }) => html`<button class="back" onClick=${() => to ? go(to) : history.back()}><${Icon} n="back" size=${18} />${label}</button>`;
+const Back = ({ to, label }) => html`<button class=${"back" + (to === "#/mehr" ? " to-mehr" : "")} onClick=${() => to ? go(to) : history.back()}><${Icon} n="back" size=${18} />${label}</button>`;
 const CTX = { html, useState, useEffect, useMemo, sb, Icon, Bernd, Back, toast, go, fmtDate, isoDate, addDays, dayStart, daysUntil, pad };
 const M = makeMehr(CTX);
 
@@ -235,12 +245,21 @@ function Login() {
 }
 
 // ---------------- Navigation ----------------
+const MEHR_LINKS = [['brainstorming', 'Brainstorming', 'bulb', ['idee']], ['finanzen', 'Finanzen', 'euro', ['buchung']], ['stipendium', 'Stipendium', 'wallet', []], ['steuern', 'Steuern', 'doc', []],
+  ['dozierende', 'Dozierende', 'person', ['dozent']], ['nachschlagen', 'Nachschlagen', 'book', ['dokument']], ['urlaube', 'Urlaube', 'sun', ['urlaub']], ['geschenke', 'Geschenkideen', 'gift', ['geschenk']],
+  ['outfits', 'Bernd & Outfits', 'shirt', []], ['einstellungen', 'Einstellungen', 'gear', []]];
 function Tabs({ route }) {
-  const t = [['home', 'Home', 'home', '--t-home'], ['kalender', 'Kalender', 'kal', '--t-kal'], ['studium', 'Studium', 'stud', '--t-stud'], ['aufgaben', 'Aufgaben', 'auf', '--t-auf'], ['mehr', 'Mehr', 'mehr', '--t-mehr']];
-  const active = { modul: 'studium', semester: 'studium', todos: 'aufgaben', timer: 'aufgaben', nullbock: 'aufgaben', eintrag: 'kalender' }[route] || (['einstellungen', 'finanzen', 'buchung', 'stipendium', 'steuern', 'nachschlagen', 'dokument', 'urlaube', 'urlaub', 'dozierende', 'dozent', 'outfits', 'brainstorming', 'idee', 'geschenke', 'geschenk'].includes(route) ? 'mehr' : route);
-  return html`<nav class="tabs" aria-label="Hauptnavigation"><div class="brand"><${Bernd} mood="zufrieden" size=${40} />Bernd</div><div class="in">${t.map(([r, l, ic, c]) => html`
-    <a href=${'#/' + r} class=${active === r ? 'on' : ''} style=${active === r ? `color:var(${c})` : ''}>
-      <span style=${active === r ? `background:var(${c})` : ''}><${Icon} n=${ic} color=${active === r ? '#fff' : `var(${c})`} /></span>${l}</a>`)}</div></nav>`;
+  const t = [['home', 'Home', 'home', '--t-home'], ['kalender', 'Kalender', 'kal', '--t-kal'], ['studium', 'Studium', 'stud', '--t-stud'], ['aufgaben', 'Aufgaben', 'auf', '--t-auf']];
+  const sub = MEHR_LINKS.find(([r, , , alt]) => r === route || alt.includes(route));
+  const active = { modul: 'studium', semester: 'studium', todos: 'aufgaben', timer: 'aufgaben', nullbock: 'aufgaben', eintrag: 'kalender' }[route] || (sub ? 'mehr' : route);
+  const link = (r, l, ic, c, on, cls = '') => html`<a href=${'#/' + r} class=${(on ? 'on ' : '') + cls} style=${on ? `color:var(${c})` : ''}>
+      <span style=${on ? `background:var(${c})` : ''}><${Icon} n=${ic} color=${on ? '#fff' : `var(${c})`} /></span>${l}</a>`;
+  return html`<nav class="tabs" aria-label="Hauptnavigation"><div class="brand"><${Bernd} mood="zufrieden" size=${40} />Bernd</div><div class="in">
+    ${t.map(([r, l, ic, c]) => link(r, l, ic, c, active === r))}
+    ${link('mehr', 'Mehr', 'mehr', '--t-mehr', active === 'mehr', 'mob-only')}
+    <div class="side-only side-sep">Mehr</div>
+    ${MEHR_LINKS.map(([r, l, ic]) => link(r, l, ic, '--t-mehr', sub?.[0] === r, 'side-only'))}
+  </div></nav>`;
 }
 
 // ---------------- Home ----------------

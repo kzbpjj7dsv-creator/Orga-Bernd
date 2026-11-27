@@ -102,13 +102,19 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
 /* ---------- Tablet & Desktop (iPad, Laptop) ---------- */
 nav.tabs .brand{display:none}
+nav.tabs .side-only{display:none}
 .split{display:flex;flex-direction:column;gap:10px}
 @media (min-width:768px){
   .app{max-width:none;margin-left:210px;padding-bottom:32px}
   nav.tabs{top:0;bottom:0;right:auto;width:210px;border-top:0;border-right:1px solid var(--line);padding:calc(20px + var(--safe-t)) 12px 20px;flex-direction:column;justify-content:flex-start}
-  nav.tabs .in{flex-direction:column;gap:4px}
+  nav.tabs{overflow-y:auto;overscroll-behavior:contain}
+  nav.tabs .in{flex-direction:column;gap:2px;padding-bottom:20px}
+  nav.tabs .mob-only{display:none}
+  .back.to-mehr{display:none}
+  nav.tabs .side-only{display:flex}
+  nav.tabs .side-sep{font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:16px 10px 6px;min-height:0}
   nav.tabs .brand{display:flex;align-items:center;gap:10px;padding:0 8px 18px;font-size:20px;font-weight:900;color:var(--text)}
-  nav.tabs a{flex:none;flex-direction:row;gap:12px;min-height:48px;padding:0 10px;border-radius:14px;font-size:15px}
+  nav.tabs a{flex:none;flex-direction:row;gap:12px;min-height:44px;padding:0 10px;border-radius:14px;font-size:15px}
   nav.tabs a.on{background:var(--soft)}
   .hero{padding:calc(28px + var(--safe-t)) 40px 24px;border-radius:0 0 32px 32px}
   .hero > *{max-width:1000px}
