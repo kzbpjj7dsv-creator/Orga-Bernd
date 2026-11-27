@@ -1,6 +1,6 @@
 import { h, render, useState, useEffect, useMemo, useRef, htm } from '../vendor/ui.js';
 import { createClient } from '../vendor/supabase.js';
-import { SUPABASE_URL, SUPABASE_KEY } from '../config.js';
+import { SUPABASE_URL, SUPABASE_KEY, VAPID_PUBLIC } from '../config.js';
 import { MODULE_SEED, SHIFT_SEED, PRAESENZ_SEED, SCHRITTE, FORMAT_CHECK, PRUEFUNGSFORM, TODO_LISTEN, EVENT_TYPEN, BERND } from './data.js';
 import { berndSVG } from './bernd.js';
 import { makeMehr } from './mehr.js';
@@ -37,6 +37,22 @@ function useHash() {
   return hash;
 }
 const go = p => { location.hash = p; window.scrollTo(0, 0); };
+
+async function pushAktivieren() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !hasNotif())
+    return toast('Auf dem iPhone geht das nur in der App vom Home-Bildschirm (iOS 16.4 oder neuer).');
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') return toast('Nicht erlaubt – in den iPhone-Einstellungen unter Mitteilungen änderbar.');
+  const reg = await navigator.serviceWorker.ready;
+  const key = Uint8Array.from(atob(VAPID_PUBLIC.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - VAPID_PUBLIC.length % 4) % 4)), c => c.charCodeAt(0));
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+  const j = sub.toJSON();
+  const r = await sb.from('push_subscriptions').upsert({ endpoint: j.endpoint, keys: j.keys, geraet: /iPhone|iPad/.test(navigator.userAgent) ? 'iPhone/iPad' : /Windows/.test(navigator.userAgent) ? 'Windows' : 'Browser' }, { onConflict: 'endpoint' });
+  if (r.error) return toast('Fehler: ' + r.error.message);
+  toast('Bernd darf dir jetzt schreiben. 🐧');
+  try { reg.showNotification('Bernd', { body: 'Test: Benachrichtigungen funktionieren!', icon: 'icons/icon-192.png' }); } catch (e) { }
+}
 
 let toastTimer;
 function toast(msg) {
@@ -596,7 +612,7 @@ function Einstellungen({ st, api }) {
     <div class="card col"><span class="b small">Wie frech ist Bernd? <span style="color:var(--accent)">${frech[(s.bernd_frechheit || 3) - 1]}</span></span>
       <input type="range" min="1" max="4" value=${s.bernd_frechheit || 3} onChange=${e => set({ bernd_frechheit: +e.target.value })} aria-label="Frechheit" />
       <label class="field">Schonmodus (heute lieb sein)<input type="checkbox" checked=${!!s.schonmodus} onChange=${e => set({ schonmodus: e.target.checked })} /></label>
-      <label class="field">Benachrichtigungen<button class="btn small" onClick=${async () => !hasNotif() ? toast('Erst die App zum Home-Bildschirm hinzufügen, dann gehen Benachrichtigungen.') : toast((await Notification.requestPermission()) === 'granted' ? 'Benachrichtigungen erlaubt' : 'Nicht erlaubt – in den iPhone-Einstellungen änderbar')}>Erlauben</button></label></div>
+      <label class="field"><span class="col" style="gap:0">Benachrichtigungen<span class="tiny">auf jedem Gerät einmal aktivieren</span></span><button class="btn small" onClick=${pushAktivieren}>Aktivieren</button></label></div>
     <span class="tiny b">DIENSTE & KALENDER</span>
     <div class="card" style="padding:2px 14px">
       <label class="field">Ruhezeit nach Nacht/24h bis<input type="time" value=${s.ruhezeit_bis || '13:00'} onChange=${e => set({ ruhezeit_bis: e.target.value })} /></label>
