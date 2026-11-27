@@ -593,6 +593,19 @@ function Mehr() {
   <div class="content"><div class="tiles">${tiles.map(([n, s, href, ic]) => html`<a class="card tile" href=${href}><span class="ic"><${Icon} n=${ic} /></span><span class="b" style="font-size:14px">${n}</span><span class="tiny">${s}</span></a>`)}</div>
     <button class="btn ghost" onClick=${() => sb.auth.signOut()}>Abmelden</button></div>`;
 }
+function KalAbo({ st, api }) {
+  const tok = st.profile?.ical_token;
+  const url = tok ? `${SUPABASE_URL}/functions/v1/bernd-ical?t=${tok}` : '';
+  const neu = async () => { if (tok && !confirm('Neuen Link erzeugen? Der alte Link funktioniert danach nicht mehr.')) return;
+    const t = [...crypto.getRandomValues(new Uint8Array(24))].map(b => b.toString(16).padStart(2, '0')).join(''); await api.saveProfile({ ical_token: t }); };
+  return html`<div class="card col">
+    <span class="small" style="color:var(--text)">Deine Termine aus Bernd als Abo im Kalender deines iPhones. Von dort kann TimeTree sie anzeigen. Nur zum Anschauen, Änderungen machst du in Bernd.</span>
+    ${tok ? html`<a class="btn small" href=${url.replace(/^https:/, 'webcal:')}>Im iPhone-Kalender abonnieren</a>
+      <button class="btn small ghost" onClick=${() => { navigator.clipboard?.writeText(url); toast('Link kopiert'); }}>Link kopieren (für Google Kalender)</button>
+      <button class="back" style="justify-content:center;font-size:12px" onClick=${neu}>Neuen Link erzeugen (alter wird ungültig)</button>`
+    : html`<button class="btn small" onClick=${neu}>Privaten Kalender-Link erstellen</button>`}
+    <span class="tiny">Der Link ist geheim wie ein Passwort: Wer ihn hat, sieht deine Termine. Ruhezeiten werden nicht übertragen.</span></div>`;
+}
 function Einstellungen({ st, api }) {
   const s = st.profile?.settings || {};
   const set = patch => api.saveProfile({ settings: { ...s, ...patch } });
@@ -621,6 +634,8 @@ function Einstellungen({ st, api }) {
       <label class="field">Fahrtkosten-Satz (€/km)<input inputmode="decimal" value=${String(s.km_satz ?? 0.30).replace('.', ',')} onChange=${e => set({ km_satz: Number(e.target.value.replace(',', '.')) || 0.30 })} /></label>
       <label class="field">Moodle-Kalender-Link<input placeholder="https://…" value=${st.profile?.moodle_ical_url || ''} onChange=${e => api.saveProfile({ moodle_ical_url: e.target.value })} /></label>
       <div class="tiny" style="padding:6px 0 10px">Der Abgleich mit Moodle wird in Etappe 2 aktiviert.</div></div>
+    <span class="tiny b">KALENDER-ABO (iPhone, Google, TimeTree)</span>
+    <${KalAbo} st=${st} api=${api} />
     <span class="tiny b">AUSSEHEN</span>
     <div class="card" style="padding:2px 14px"><label class="field">Nachtmodus<select value=${s.nachtmodus || 'sonnenuntergang'} onChange=${e => set({ nachtmodus: e.target.value })}><option value="sonnenuntergang">automatisch abends</option><option value="immer">immer</option><option value="nie">nie</option></select></label></div>
   </div>`;
