@@ -12,6 +12,14 @@ Läuft im Browser auf iPhone und Windows-Laptop; die Daten liegen in Supabase (R
 - Arbeitsphase-Timer im eigenen Rhythmus
 - Bernd mit Stimmungen, Nachtmodus, Einstellungen
 
+## Etappe 2
+- Bernd plant Arbeitsphasen selbst (Lücken, Ruhezeiten, Präsenztage, Tagesmaximum, Dringlichkeit)
+- Finanzen (Monat/Jahr, Kreisdiagramm, Fixkosten, Einnahmen nach Quelle)
+- Stipendium (Ausgaben, Erstattungen, Bescheide-Ordner) und Steuern (Jahresübersicht, CSV-Export)
+- Nachschlagen (PDF-Ablage, Inhaltsverzeichnis RD SH, Suche, Favoriten)
+- Urlaube (To-dos, Packliste, Wetter via Open-Meteo)
+- Dozierende mit Kleiderschrank, Bernd & Outfits, Brainstorming mit PICO/ECLIPSE-Baukasten
+
 ## Einrichtung
 1. `supabase/schema.sql` einmal im Supabase SQL Editor ausführen.
 2. Supabase → Authentication → URL Configuration → **Site URL**: `https://kzbpjj7dsv-creator.github.io/Orga-Bernd/`

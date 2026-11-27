@@ -3,6 +3,8 @@ import { createClient } from '../vendor/supabase.js';
 import { SUPABASE_URL, SUPABASE_KEY } from '../config.js';
 import { MODULE_SEED, SHIFT_SEED, PRAESENZ_SEED, SCHRITTE, FORMAT_CHECK, PRUEFUNGSFORM, TODO_LISTEN, EVENT_TYPEN, BERND } from './data.js';
 import { berndSVG } from './bernd.js';
+import { makeMehr } from './mehr.js';
+import { planeWoche } from './planer.js';
 
 const html = htm.bind(h);
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
@@ -92,6 +94,22 @@ const Icon = ({ n, size = 20, color = 'currentColor', fill = 'none' }) =>
   html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill=${fill} stroke=${color} stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: IC[n] }}></svg>`;
 const Bernd = ({ mood, size = 96, outfit }) => html`<span style="display:flex" dangerouslySetInnerHTML=${{ __html: berndSVG(mood, size, outfit) }}></span>`;
 const Back = ({ to, label }) => html`<button class="back" onClick=${() => to ? go(to) : history.back()}><${Icon} n="back" size=${18} />${label}</button>`;
+const CTX = { html, useState, useEffect, useMemo, sb, Icon, Bernd, Back, toast, go, fmtDate, isoDate, addDays, dayStart, daysUntil, pad };
+const M = makeMehr(CTX);
+
+// Bernd plant: zukünftige Bernd-Arbeitsphasen löschen und neu verteilen
+async function replan(st, setSt, quiet) {
+  const now = new Date().toISOString();
+  const alt = st.events.filter(e => e.von_bernd && e.start_at > now);
+  if (alt.length) await sb.from('events').delete().in('id', alt.map(e => e.id));
+  const rest = st.events.filter(e => !(e.von_bernd && e.start_at > now));
+  const neu = planeWoche({ ...st, events: rest }, expand);
+  let ins = [];
+  if (neu.length) { const r = await sb.from('events').insert(neu).select(); if (r.error) { toast('Planen fehlgeschlagen: ' + r.error.message); return; } ins = r.data; }
+  setSt(s => ({ ...s, events: [...rest, ...ins] }));
+  localStorage.setItem('bernd_plan', isoDate(new Date()));
+  if (!quiet) toast(neu.length ? `Bernd hat ${neu.length} Arbeitsphasen eingeplant.` : 'Keine offenen Abgaben mit Termin – nichts zu planen.');
+}
 
 // ---------------- Daten-Store ----------------
 function useStore(user) {
@@ -119,12 +137,15 @@ function useStore(user) {
         start_at: new Date(von + 'T00:00').toISOString(), ende_at: addDays(new Date(bis + 'T00:00'), 1).toISOString() }));
       const r = await sb.from('events').insert(rows).select(); events = [...events, ...(r.data || [])];
     }
-    setSt({ loading: false, profile, modules, tasks: t.data, todos: td.data, events, shifts, sessions: ws.data });
+    const fresh = { loading: false, profile, modules, tasks: t.data, todos: td.data, events, shifts, sessions: ws.data };
+    setSt(fresh);
+    if (localStorage.getItem('bernd_plan') !== isoDate(new Date())) replan(fresh, setSt, true);
     applyNight(profile?.settings);
   };
   useEffect(() => { load(); }, [user.id]);
   const api = {
     reload: load,
+    replan: quiet => setSt(s => { replan(s, setSt, quiet); return s; }),
     async upsert(table, row, key) {
       const r = row.id ? await sb.from(table).update(row).eq('id', row.id).select().single() : await sb.from(table).insert(row).select().single();
       if (r.error) { toast('Fehler: ' + r.error.message); return null; }
@@ -200,7 +221,7 @@ function Login() {
 // ---------------- Navigation ----------------
 function Tabs({ route }) {
   const t = [['home', 'Home', 'home', '--t-home'], ['kalender', 'Kalender', 'kal', '--t-kal'], ['studium', 'Studium', 'stud', '--t-stud'], ['aufgaben', 'Aufgaben', 'auf', '--t-auf'], ['mehr', 'Mehr', 'mehr', '--t-mehr']];
-  const active = { modul: 'studium', semester: 'studium', todos: 'aufgaben', timer: 'aufgaben', nullbock: 'aufgaben', einstellungen: 'mehr', eintrag: 'kalender' }[route] || route;
+  const active = { modul: 'studium', semester: 'studium', todos: 'aufgaben', timer: 'aufgaben', nullbock: 'aufgaben', eintrag: 'kalender' }[route] || (['einstellungen', 'finanzen', 'buchung', 'stipendium', 'steuern', 'nachschlagen', 'dokument', 'urlaube', 'urlaub', 'dozierende', 'dozent', 'outfits', 'brainstorming', 'idee'].includes(route) ? 'mehr' : route);
   return html`<nav class="tabs" aria-label="Hauptnavigation"><div class="in">${t.map(([r, l, ic, c]) => html`
     <a href=${'#/' + r} class=${active === r ? 'on' : ''} style=${active === r ? `color:var(${c})` : ''}>
       <span style=${active === r ? `background:var(${c})` : ''}><${Icon} n=${ic} color=${active === r ? '#fff' : `var(${c})`} /></span>${l}</a>`)}</div></nav>`;
@@ -222,7 +243,7 @@ function Home({ st }) {
     <div class="row" style="align-items:flex-end"><${Bernd} mood=${mood} size=${96} outfit=${st.profile?.bernd_outfit} /><div class="bubble">${berndLine(mood, set.bernd_frechheit)}</div></div>
   </div>
   <div class="content">
-    <a class="btn" href="#/timer"><${Icon} n="play" fill="currentColor" color="none" />Arbeitsphase starten</a>
+    <a class="btn" href=${'#/timer' + (heute.find(e => e.typ === 'arbeitsphase' && e.task_id && e._e > now)?.task_id ? '/' + heute.find(e => e.typ === 'arbeitsphase' && e.task_id && e._e > now).task_id : '')}><${Icon} n="play" fill="currentColor" color="none" />Arbeitsphase starten</a>
     <div class="row"><div class="stat"><span class="small b">Heute gearbeitet</span><b>${Math.floor(minHeute / 60)}:${pad(minHeute % 60)} Std.</b></div>
       <div class="stat"><span class="small b">Studium</span><b>${cpDone} / 180 CP</b></div></div>
     <div class="between"><span class="h2">Heute</span><a class="small b" href="#/kalender">Kalender</a></div>
@@ -299,7 +320,7 @@ function Modul({ st, api, id }) {
     <div class="card col" style="gap:6px;background:#fff;color:#3D1418">
       <input class="input" style="min-height:38px" placeholder="Name Dozent*in" value=${doz.name || ''} onChange=${e => save({ dozent: { ...doz, name: e.target.value } })} aria-label="Name Dozent*in" />
       <input class="input" style="min-height:38px;font-style:italic" placeholder="Dein Spruch für diese Person" value=${doz.spruch || ''} onChange=${e => save({ dozent: { ...doz, spruch: e.target.value } })} aria-label="Spruch" />
-      <span class="tiny" style="color:#6E3D42">Den Kleiderschrank für die Figur gibt es in Etappe 2.</span></div></div>
+      <a class="row small b" style="color:#8C1C2B;text-decoration:none" href=${'#/dozent/' + m.id}><span dangerouslySetInnerHTML=${{ __html: M.avatar(doz.figur, 44) }} style="display:flex"></span>Figur im Kleiderschrank stylen ›</a></div></div>
   <div class="content">
     <div class="card" style="padding:2px 14px">
       <label class="field">Anwesenheit erledigt<input type="checkbox" checked=${m.anwesenheit_erledigt} onChange=${e => save({ anwesenheit_erledigt: e.target.checked })} /></label>
@@ -318,9 +339,9 @@ function TaskForm({ m, api, done }) {
   const submit = async e => {
     e.preventDefault();
     const schritte = (SCHRITTE[f.art] || SCHRITTE._).map(text => ({ text, erledigt: false }));
-    const r = await api.upsert('tasks', { module_id: m.id, titel: f.titel, art: f.art, abgabe: f.abgabe ? combine(f.abgabe, f.zeit).toISOString() : null, umfang_seiten: f.umfang_seiten ? +f.umfang_seiten : null, schritte }, 'tasks');
+    const r = await api.upsert('tasks', { module_id: m.id, titel: f.titel, art: f.art, abgabe: f.abgabe ? combine(f.abgabe, f.zeit).toISOString() : null, umfang_seiten: f.umfang_seiten ? +f.umfang_seiten : null, schritte, status: 'offen' }, 'tasks');
     if (r && f.abgabe) await api.upsert('events', { typ: 'abgabe', titel: `Abgabe: ${f.titel}`, start_at: combine(f.abgabe, f.zeit).toISOString(), ganztags: true, task_id: r.id }, 'events');
-    if (r) { toast('Aufgabe angelegt'); done(); }
+    if (r) { toast('Aufgabe angelegt'); api.replan(true); done(); }
   };
   return html`<form class="card" style="padding:2px 14px" onSubmit=${submit}>
     <label class="field">Titel<input value=${f.titel} onInput=${e => setF({ ...f, titel: e.target.value })} required /></label>
@@ -385,6 +406,7 @@ function Kalender({ st, api }) {
       return html`<button class=${sameDay(d, selDay) ? 'sel' : ''} style=${inMonth ? '' : 'opacity:.35'} onClick=${() => setSel({ day: d })}>${d.getDate()}<span class="dots">${types.map(t => html`<i style=${`background:${EVENT_TYPEN[t]?.farbe};outline:1px solid #fff`}></i>`)}</span></button>`;
     })}</div></div>`}
   ${view === 'Woche' ? html`<div class="legend">${['dienst', 'ruhezeit', 'arbeitsphase', 'uni', 'schule', 'online', 'erste_hilfe', 'privat'].map(k => html`<span><i style=${`background:${EVENT_TYPEN[k].farbe}`}></i>${EVENT_TYPEN[k].label}</span>`)}</div>` : ''}
+  <button class="btn ghost small" onClick=${() => api.replan(false)}>Bernd neu planen lassen</button>
   <span class="h2">${fmtDate(sel?.day || new Date())}</span>
   ${(() => { const ds = dayStart(selDay), de = addDays(ds, 1); const list = evs.filter(e => e._e > ds && e._s < de); return list.length ? list.map(e => html`<${EventRow} e=${e} onClick=${() => setSel({ day: selDay, ev: e })} />`) : html`<div class="card small">Keine Einträge.</div>`; })()}
   ${sel?.ev && html`<div class="card col"><span class="b">${sel.ev.titel || EVENT_TYPEN[sel.ev.typ]?.label}</span><span class="small">${hm(sel.ev._s)}–${hm(sel.ev._e)}${sel.ev.ort ? ' · ' + sel.ev.ort : ''}</span><button class="btn small ghost" onClick=${() => del(sel.ev)}>Löschen</button></div>`}
@@ -413,7 +435,11 @@ function Eintrag({ st, api }) {
       const rEnd = new Date(end); rEnd.setHours(+rh, +rm, 0, 0);
       if (rEnd > end) await api.upsert('events', { typ: 'ruhezeit', titel: 'Ruhezeit', start_at: end.toISOString(), ende_at: rEnd.toISOString() }, 'events');
     }
-    if (r) { toast('Eingetragen'); go('#/kalender'); }
+    if (r && typ === 'urlaub') {
+      const v = await sb.from('vacations').insert({ reiseziel: f.ort || titel || 'Urlaub', start_datum: f.datum, ende_datum: f.bis_datum || f.datum, event_id: r.id }).select().single();
+      if (v.data) { await M.seedVacation(v.data); toast('Urlaub angelegt – die Planung wartet unter Mehr → Urlaube'); go('#/urlaub/' + v.data.id); return; }
+    }
+    if (r) { toast('Eingetragen'); api.replan(true); go('#/kalender'); }
   };
   return html`<div class="hero"><${Back} to="#/kalender" label="Kalender" /><h1>Neuer Eintrag</h1></div>
   <form class="content" onSubmit=${submit}>
@@ -542,12 +568,11 @@ function Timer({ st, api, taskId }) {
 
 // ---------------- Mehr & Einstellungen ----------------
 function Mehr() {
-  const tiles = [['Einstellungen', 'Zeiten, Bernd, Aussehen', '#/einstellungen', false], ['Brainstorming', 'Ideen → PICO & ECLIPSE', '', true], ['Finanzen', 'Einnahmen, Ausgaben, Sparen', '', true],
-    ['Stipendium', 'Ausgaben & Bescheide', '', true], ['Steuern', 'Werbungskosten sammeln', '', true], ['Dozierende', 'Kleiderschrank & Sprüche', '', true],
-    ['Nachschlagen', 'Handlungsempfehlungen RD SH', '', true], ['Urlaube', 'Reisen planen', '', true], ['Bernd & Outfits', 'Freigeschaltete Looks', '', true]];
-  return html`<div class="hero"><h1>Mehr</h1><span class="sub">Ausgegraute Bereiche kommen in den nächsten Etappen.</span></div>
-  <div class="content"><div class="tiles">${tiles.map(([n, s, href, soon]) => html`<a class=${'card tile' + (soon ? ' soon' : '')} href=${href || '#/mehr'} onClick=${soon ? (e => { e.preventDefault(); toast('Kommt in einer der nächsten Etappen.'); }) : null}>
-    <span class="ic"><${Icon} n=${n === 'Einstellungen' ? 'mehr' : 'auf'} /></span><span class="b" style="font-size:14px">${n}</span><span class="tiny">${s}</span></a>`)}</div>
+  const tiles = [['Brainstorming', 'Ideen → PICO & ECLIPSE', '#/brainstorming', 'auf'], ['Finanzen', 'Einnahmen, Ausgaben, Sparen', '#/finanzen', 'kal'], ['Stipendium', 'Ausgaben & Bescheide', '#/stipendium', 'stud'],
+    ['Steuern', 'Werbungskosten sammeln', '#/steuern', 'auf'], ['Dozierende', 'Kleiderschrank & Sprüche', '#/dozierende', 'stud'], ['Nachschlagen', 'Handlungsempfehlungen RD SH', '#/nachschlagen', 'auf'],
+    ['Urlaube', 'Reisen planen', '#/urlaube', 'kal'], ['Bernd & Outfits', 'Freigeschaltete Looks', '#/outfits', 'home'], ['Einstellungen', 'Zeiten, Bernd, Aussehen', '#/einstellungen', 'mehr']];
+  return html`<div class="hero"><h1>Mehr</h1><span class="sub">Alles, was nicht in die anderen Reiter passt</span></div>
+  <div class="content"><div class="tiles">${tiles.map(([n, s, href, ic]) => html`<a class="card tile" href=${href}><span class="ic"><${Icon} n=${ic} /></span><span class="b" style="font-size:14px">${n}</span><span class="tiny">${s}</span></a>`)}</div>
     <button class="btn ghost" onClick=${() => sb.auth.signOut()}>Abmelden</button></div>`;
 }
 function Einstellungen({ st, api }) {
@@ -575,6 +600,7 @@ function Einstellungen({ st, api }) {
     <span class="tiny b">DIENSTE & KALENDER</span>
     <div class="card" style="padding:2px 14px">
       <label class="field">Ruhezeit nach Nacht/24h bis<input type="time" value=${s.ruhezeit_bis || '13:00'} onChange=${e => set({ ruhezeit_bis: e.target.value })} /></label>
+      <label class="field">Fahrtkosten-Satz (€/km)<input inputmode="decimal" value=${String(s.km_satz ?? 0.30).replace('.', ',')} onChange=${e => set({ km_satz: Number(e.target.value.replace(',', '.')) || 0.30 })} /></label>
       <label class="field">Moodle-Kalender-Link<input placeholder="https://…" value=${st.profile?.moodle_ical_url || ''} onChange=${e => api.saveProfile({ moodle_ical_url: e.target.value })} /></label>
       <div class="tiny" style="padding:6px 0 10px">Der Abgleich mit Moodle wird in Etappe 2 aktiviert.</div></div>
     <span class="tiny b">AUSSEHEN</span>
@@ -584,7 +610,7 @@ function Einstellungen({ st, api }) {
 
 // ---------------- App ----------------
 function Main({ user }) {
-  const [st, api] = useStore(user); const hash = useHash();
+  const [st, api] = useStore(user); const hash = useHash(); CTX.reloadStore = api.reload;
   const [route, a1] = hash.replace(/^#\//, '').split('/');
   useEffect(() => { const i = setInterval(() => applyNight(st.profile?.settings), 6e4); return () => clearInterval(i); }, [st.profile]);
   if (st.loading) return html`<div class="center"><${Bernd} mood="ruhe" size=${120} /><b>Bernd sortiert deine Daten …</b></div>`;
@@ -595,6 +621,10 @@ function Main({ user }) {
     modul: () => html`<${Modul} ...${P} id=${a1} />`, kalender: () => html`<${Kalender} ...${P} />`, eintrag: () => html`<${Eintrag} ...${P} />`,
     aufgaben: () => html`<${Aufgaben} ...${P} />`, todos: () => html`<${Todos} ...${P} />`, nullbock: () => html`<${NullBock} ...${P} />`,
     timer: () => html`<${Timer} ...${P} taskId=${a1} />`, mehr: () => html`<${Mehr} />`, einstellungen: () => html`<${Einstellungen} ...${P} />`,
+    finanzen: () => html`<${M.Finanzen} />`, buchung: () => html`<${M.Buchung} />`, stipendium: () => html`<${M.Stipendium} />`, steuern: () => html`<${M.Steuern} ...${P} />`,
+    nachschlagen: () => html`<${M.Nachschlagen} />`, dokument: () => html`<${M.Dokument} id=${a1} />`, urlaube: () => html`<${M.Urlaube} />`, urlaub: () => html`<${M.Urlaub} id=${a1} />`,
+    dozierende: () => html`<${M.Dozierende} ...${P} />`, dozent: () => html`<${M.Kleiderschrank} ...${P} id=${a1} />`, outfits: () => html`<${M.Outfits} ...${P} />`,
+    brainstorming: () => html`<${M.Brainstorming} ...${P} />`, idee: () => html`<${M.Idee} ...${P} id=${a1} />`,
   }[route] || (() => html`<${Home} ...${P} />`);
   return html`<div class="app">${view()}</div><${Tabs} route=${route} />`;
 }
