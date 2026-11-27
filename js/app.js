@@ -223,14 +223,13 @@ function Login() {
   return html`<div class="center">
     <${Bernd} mood="zufrieden" size=${140} />
     <h1 style="margin:0;font-size:28px;font-weight:900">Hallo, ich bin Bernd.</h1>
-    <p class="small" style="margin:0">${mode === 'login' ? 'Melde dich an, dann geht’s los.' : 'Leg dein Konto an. Nur du siehst deine Daten.'}</p>
+    <p class="small" style="margin:0">Melde dich an, dann geht’s los.</p>
     <form onSubmit=${submit} style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:10px">
       <label class="sr" for="em">E-Mail</label><input id="em" class="input" type="email" placeholder="E-Mail" autocomplete="email" value=${email} onInput=${e => setEmail(e.target.value)} required />
       <label class="sr" for="pw">Passwort</label><input id="pw" class="input" type="password" placeholder="Passwort (mind. 8 Zeichen)" minlength="8" autocomplete=${mode === 'login' ? 'current-password' : 'new-password'} value=${pw} onInput=${e => setPw(e.target.value)} required />
       <button class="btn" disabled=${busy}>${busy ? '…' : mode === 'login' ? 'Anmelden' : 'Konto anlegen'}</button>
       ${msg && html`<div class="card small" style="text-align:left">${msg}</div>`}
-      <button type="button" class="back" style="justify-content:center" onClick=${() => { setMode(mode === 'login' ? 'register' : 'login'); setMsg(''); }}>
-        ${mode === 'login' ? 'Noch kein Konto? Registrieren' : 'Schon ein Konto? Anmelden'}</button>
+      <span class="tiny">Private App – neue Registrierungen sind geschlossen.</span>
     </form>
   </div>`;
 }

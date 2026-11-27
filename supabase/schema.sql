@@ -313,3 +313,17 @@ drop policy if exists "eigene Daten" on gifts;
 create policy "eigene Daten" on gifts for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 grant select, insert, update, delete on gifts to authenticated;
 grant all on gifts to service_role;
+
+-- Private App: nach dem ersten Konto sind keine weiteren Registrierungen möglich
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
+create or replace function private.block_signups() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if exists (select 1 from auth.users) then
+    raise exception 'Registrierung ist geschlossen. Diese App ist privat.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists block_signups on auth.users;
+create trigger block_signups before insert on auth.users for each row execute function private.block_signups();
