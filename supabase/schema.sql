@@ -289,3 +289,7 @@ create policy "eigene Dateien löschen" on storage.objects for delete
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
+grant usage on schema public to service_role;
+grant all on all tables in schema public to service_role;
+alter default privileges in schema public grant all on tables to service_role;
+revoke execute on function public.handle_new_user() from public, anon, authenticated;

@@ -14,7 +14,7 @@ alter table notification_log enable row level security;
 revoke all on notification_log from anon, authenticated;
 
 create extension if not exists pg_cron;
-create extension if not exists pg_net;
+create extension if not exists pg_net with schema extensions;
 
 select cron.unschedule('bernd-push') where exists (select 1 from cron.job where jobname = 'bernd-push');
 select cron.schedule('bernd-push', '*/15 * * * *', $$
