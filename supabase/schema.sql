@@ -280,3 +280,12 @@ create policy "eigene Dateien ändern" on storage.objects for update
   using (bucket_id in ('belege','nachschlagen','bescheide') and (storage.foldername(name))[1] = auth.uid()::text);
 create policy "eigene Dateien löschen" on storage.objects for delete
   using (bucket_id in ('belege','nachschlagen','bescheide') and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ============================================================
+-- Zugriffsrechte für angemeldete Nutzer (neue Supabase-Projekte
+-- vergeben diese nicht mehr automatisch). Die RLS-Regeln oben
+-- sorgen weiterhin dafür, dass jede Person nur ihre Daten sieht.
+-- ============================================================
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
