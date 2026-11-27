@@ -193,7 +193,8 @@ function berndMood(st) {
   if (set.schonmodus) return 'schonmodus';
   const today = expand(st.events, dayStart(now), addDays(dayStart(now), 1));
   if (today.some(e => e.typ === 'urlaub')) return 'urlaub';
-  if (today.some(e => (e.typ === 'ruhezeit' || e.typ === 'dienst') && e._s <= now && e._e > now)) return 'ruhe';
+  if (today.some(e => e.typ === 'dienst' && e._s <= now && e._e > now)) return 'dienst';
+  if (today.some(e => e.typ === 'ruhezeit' && e._s <= now && e._e > now)) return 'ruhe';
   const offen = st.tasks.filter(t => t.status === 'offen' && t.abgabe);
   if (offen.some(t => { const d = daysUntil(t.abgabe); const p = progress(t); return (d <= 3 && d >= 0 && p < 60) || (d <= 7 && d >= 0 && p < 30); })) return 'wuetend';
   const missed = today.filter(e => e.typ === 'arbeitsphase' && e._e < now).some(e =>
@@ -237,8 +238,8 @@ function Login() {
 // ---------------- Navigation ----------------
 function Tabs({ route }) {
   const t = [['home', 'Home', 'home', '--t-home'], ['kalender', 'Kalender', 'kal', '--t-kal'], ['studium', 'Studium', 'stud', '--t-stud'], ['aufgaben', 'Aufgaben', 'auf', '--t-auf'], ['mehr', 'Mehr', 'mehr', '--t-mehr']];
-  const active = { modul: 'studium', semester: 'studium', todos: 'aufgaben', timer: 'aufgaben', nullbock: 'aufgaben', eintrag: 'kalender' }[route] || (['einstellungen', 'finanzen', 'buchung', 'stipendium', 'steuern', 'nachschlagen', 'dokument', 'urlaube', 'urlaub', 'dozierende', 'dozent', 'outfits', 'brainstorming', 'idee'].includes(route) ? 'mehr' : route);
-  return html`<nav class="tabs" aria-label="Hauptnavigation"><div class="in">${t.map(([r, l, ic, c]) => html`
+  const active = { modul: 'studium', semester: 'studium', todos: 'aufgaben', timer: 'aufgaben', nullbock: 'aufgaben', eintrag: 'kalender' }[route] || (['einstellungen', 'finanzen', 'buchung', 'stipendium', 'steuern', 'nachschlagen', 'dokument', 'urlaube', 'urlaub', 'dozierende', 'dozent', 'outfits', 'brainstorming', 'idee', 'geschenke', 'geschenk'].includes(route) ? 'mehr' : route);
+  return html`<nav class="tabs" aria-label="Hauptnavigation"><div class="brand"><${Bernd} mood="zufrieden" size=${40} />Bernd</div><div class="in">${t.map(([r, l, ic, c]) => html`
     <a href=${'#/' + r} class=${active === r ? 'on' : ''} style=${active === r ? `color:var(${c})` : ''}>
       <span style=${active === r ? `background:var(${c})` : ''}><${Icon} n=${ic} color=${active === r ? '#fff' : `var(${c})`} /></span>${l}</a>`)}</div></nav>`;
 }
@@ -258,16 +259,17 @@ function Home({ st }) {
     <div class="col"><span class="sub">${fmtDate(now)}</span><h1>${gruss}, ${name}</h1></div>
     <div class="row" style="align-items:flex-end"><${Bernd} mood=${mood} size=${96} outfit=${st.profile?.bernd_outfit} /><div class="bubble">${berndLine(mood, set.bernd_frechheit)}</div></div>
   </div>
-  <div class="content">
+  <div class="content"><div class="split"><div class="col">
     <a class="btn" href=${'#/timer' + (heute.find(e => e.typ === 'arbeitsphase' && e.task_id && e._e > now)?.task_id ? '/' + heute.find(e => e.typ === 'arbeitsphase' && e.task_id && e._e > now).task_id : '')}><${Icon} n="play" fill="currentColor" color="none" />Arbeitsphase starten</a>
     <div class="row"><div class="stat"><span class="small b">Heute gearbeitet</span><b>${Math.floor(minHeute / 60)}:${pad(minHeute % 60)} Std.</b></div>
       <div class="stat"><span class="small b">Studium</span><b>${cpDone} / 180 CP</b></div></div>
     <div class="between"><span class="h2">Heute</span><a class="small b" href="#/kalender">Kalender</a></div>
     ${heute.length ? heute.map(e => html`<${EventRow} e=${e} />`) : html`<div class="card small">Nichts eingetragen. Freie Bahn für Arbeitsphasen.</div>`}
+    </div><div class="col">
     <div class="between"><span class="h2">Nächste Abgaben</span><a class="small b" href="#/aufgaben">Alle</a></div>
     ${abgaben.length ? abgaben.map(t => html`<${TaskCard} t=${t} st=${st} />`) : html`<div class="card small">Keine offenen Abgaben mit Termin. Trag sie im Studium-Reiter beim Modul ein.</div>`}
     <span class="tiny">Semester ${aktSemester(st)}: ${cpSem} CP geplant</span>
-  </div>`;
+  </div></div></div>`;
 }
 const aktSemester = st => st.profile?.settings?.semester || 1;
 const cpErreicht = mods => mods.filter(m => m.bestanden || (m.note != null && m.note <= 4)).reduce((a, m) => a + Number(m.cp || 0), 0);
@@ -391,7 +393,7 @@ function TaskDetail({ t, api }) {
 // ---------------- Kalender ----------------
 function Kalender({ st, api }) {
   const [view, setView] = useState('Woche'); const [ref, setRef] = useState(new Date()); const [sel, setSel] = useState(null);
-  const H = 17;
+  const H = window.innerWidth >= 768 ? 26 : 17;
   const mon = mondayOf(ref); const days = [...Array(7)].map((_, i) => addDays(mon, i));
   const evs = useMemo(() => expand(st.events, addDays(mon, -31), addDays(mon, 45)), [st.events, ref]);
   const del = async e => { if (e._rep ? confirm('Ganze Serie löschen?') : confirm('Eintrag löschen?')) { await api.remove('events', e.id, 'events'); setSel(null); } };
@@ -455,6 +457,7 @@ function Eintrag({ st, api }) {
       const v = await sb.from('vacations').insert({ reiseziel: f.ort || titel || 'Urlaub', start_datum: f.datum, ende_datum: f.bis_datum || f.datum, event_id: r.id }).select().single();
       if (v.data) { await M.seedVacation(v.data); toast('Urlaub angelegt – die Planung wartet unter Mehr → Urlaube'); go('#/urlaub/' + v.data.id); return; }
     }
+    if (r && typ === 'geburtstag') { toast('Geburtstag eingetragen – jetzt Geschenkideen sammeln!'); go('#/geschenk/' + r.id); return; }
     if (r) { toast('Eingetragen'); api.replan(true); go('#/kalender'); }
   };
   return html`<div class="hero"><${Back} to="#/kalender" label="Kalender" /><h1>Neuer Eintrag</h1></div>
@@ -462,7 +465,7 @@ function Eintrag({ st, api }) {
     <div class="chips">${typen.map(t => html`<button type="button" class=${'pill' + (typ === t ? ' on' : '')} onClick=${() => pickTyp(t)}>${EVENT_TYPEN[t].label}</button>`)}</div>
     ${typ === 'dienst' && html`<span class="b small">Dienstvorlage</span><div class="tgrid">${st.shifts.map(s => html`<button type="button" class=${tpl?.id === s.id ? 'on' : ''} onClick=${() => setTpl(s)}><b>${s.kuerzel}</b><small>${s.start_zeit.slice(0, 5)}–${s.ende_zeit.slice(0, 5)}</small></button>`)}</div>`}
     <div class="card" style="padding:2px 14px">
-      ${typ !== 'dienst' && html`<label class="field">Titel<input value=${f.titel} placeholder=${EVENT_TYPEN[typ].label} onInput=${e => set('titel', e.target.value)} /></label>`}
+      ${typ !== 'dienst' && html`<label class="field">${typ === 'geburtstag' ? 'Wessen Geburtstag?' : 'Titel'}<input value=${f.titel} placeholder=${typ === 'geburtstag' ? 'z. B. Mama' : EVENT_TYPEN[typ].label} onInput=${e => set('titel', e.target.value)} /></label>`}
       <label class="field">${typ === 'urlaub' ? 'Von' : 'Datum'}<input type="date" value=${f.datum} onInput=${e => set('datum', e.target.value)} required /></label>
       ${typ === 'urlaub' && html`<label class="field">Bis<input type="date" value=${f.bis_datum} onInput=${e => set('bis_datum', e.target.value)} /></label>`}
       ${typ !== 'dienst' && typ !== 'urlaub' && html`<label class="field">Ganztägig<input type="checkbox" checked=${f.ganztags} onChange=${e => set('ganztags', e.target.checked)} /></label>`}
@@ -586,7 +589,7 @@ function Timer({ st, api, taskId }) {
 function Mehr() {
   const tiles = [['Brainstorming', 'Ideen → PICO & ECLIPSE', '#/brainstorming', 'auf'], ['Finanzen', 'Einnahmen, Ausgaben, Sparen', '#/finanzen', 'kal'], ['Stipendium', 'Ausgaben & Bescheide', '#/stipendium', 'stud'],
     ['Steuern', 'Werbungskosten sammeln', '#/steuern', 'auf'], ['Dozierende', 'Kleiderschrank & Sprüche', '#/dozierende', 'stud'], ['Nachschlagen', 'Handlungsempfehlungen RD SH', '#/nachschlagen', 'auf'],
-    ['Urlaube', 'Reisen planen', '#/urlaube', 'kal'], ['Bernd & Outfits', 'Freigeschaltete Looks', '#/outfits', 'home'], ['Einstellungen', 'Zeiten, Bernd, Aussehen', '#/einstellungen', 'mehr']];
+    ['Urlaube', 'Reisen planen', '#/urlaube', 'kal'], ['Geschenkideen', 'Zu jedem Geburtstag', '#/geschenke', 'home'], ['Bernd & Outfits', 'Freigeschaltete Looks', '#/outfits', 'home'], ['Einstellungen', 'Zeiten, Bernd, Aussehen', '#/einstellungen', 'mehr']];
   return html`<div class="hero"><h1>Mehr</h1><span class="sub">Alles, was nicht in die anderen Reiter passt</span></div>
   <div class="content"><div class="tiles">${tiles.map(([n, s, href, ic]) => html`<a class="card tile" href=${href}><span class="ic"><${Icon} n=${ic} /></span><span class="b" style="font-size:14px">${n}</span><span class="tiny">${s}</span></a>`)}</div>
     <button class="btn ghost" onClick=${() => sb.auth.signOut()}>Abmelden</button></div>`;
@@ -641,6 +644,7 @@ function Main({ user }) {
     nachschlagen: () => html`<${M.Nachschlagen} />`, dokument: () => html`<${M.Dokument} id=${a1} />`, urlaube: () => html`<${M.Urlaube} />`, urlaub: () => html`<${M.Urlaub} id=${a1} />`,
     dozierende: () => html`<${M.Dozierende} ...${P} />`, dozent: () => html`<${M.Kleiderschrank} ...${P} id=${a1} />`, outfits: () => html`<${M.Outfits} ...${P} />`,
     brainstorming: () => html`<${M.Brainstorming} ...${P} />`, idee: () => html`<${M.Idee} ...${P} id=${a1} />`,
+    geschenke: () => html`<${M.Geschenke} ...${P} />`, geschenk: () => html`<${M.Geschenk} ...${P} id=${a1} />`,
   }[route] || (() => html`<${Home} ...${P} />`);
   return html`<div class="app">${view()}</div><${Tabs} route=${route} />`;
 }

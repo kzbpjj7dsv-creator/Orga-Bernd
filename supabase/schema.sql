@@ -293,3 +293,23 @@ grant usage on schema public to service_role;
 grant all on all tables in schema public to service_role;
 alter default privileges in schema public grant all on tables to service_role;
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
+
+-- ---------- Geschenkideen (zu Geburtstagen) ----------
+create table if not exists gifts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  event_id uuid references events on delete cascade,
+  person text not null,
+  idee text not null,
+  budget numeric,
+  link text,
+  status text not null default 'idee' check (status in ('idee','gekauft','verpackt','verschenkt')),
+  jahr int,
+  notiz text,
+  created_at timestamptz default now()
+);
+alter table gifts enable row level security;
+drop policy if exists "eigene Daten" on gifts;
+create policy "eigene Daten" on gifts for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+grant select, insert, update, delete on gifts to authenticated;
+grant all on gifts to service_role;

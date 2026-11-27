@@ -122,6 +122,7 @@ export const BERND = {
     ['Abgabe bald. Ich suche schon mal Blumen für dein Grab aus.', 'Deine Hausarbeit schreibt sich nicht von allein. Ich hab es getestet.'],
     ['Wenn du jetzt nicht anfängst, reanimiert dich auch kein R24 mehr.', 'Deadline. Panik. Los.'],
   ],
+  dienst: [['Ich fahr heute mit. Pass auf dich und die anderen auf!', 'Dienst! Die Hausarbeit wartet, die Patienten nicht.', 'Blaulicht an, Uni aus. Komm gut durch den Dienst.']],
   ruhe: [['Ruhezeit. Schlaf dich aus, ich halte die Stellung.', 'Nach dem Dienst wird erst geschlafen. Ich bin heute leise.']],
   urlaub: [['Urlaubsmodus. Bitte nicht wecken.', 'Zzz … ich bin im Urlaub. Du auch.']],
   schonmodus: [['Heute ist Schonmodus. Pass auf dich auf.', 'Kein Druck heute. Ich bin da, wenn du mich brauchst.']],

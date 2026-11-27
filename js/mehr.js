@@ -451,5 +451,46 @@ export function makeMehr(C) {
       <button class="btn ghost small" onClick=${async () => { if (confirm('Idee mit allen Fragen löschen?')) { await delI(id); go('#/brainstorming'); } }}>Idee löschen</button></div>`;
   }
 
-  return { seedVacation, Finanzen, Buchung, Stipendium, Steuern, Nachschlagen, Dokument, Urlaube, Urlaub, Dozierende, Kleiderschrank, Outfits, Brainstorming, Idee, avatar };
+
+  // ======================= GESCHENKIDEEN =======================
+  const nextBirthday = e => { const s = new Date(e.start_at); const t = dayStart(new Date()); let n = new Date(t.getFullYear(), s.getMonth(), s.getDate()); if (n < t) n = new Date(t.getFullYear() + 1, s.getMonth(), s.getDate()); return n; };
+  const personOf = e => (e.titel || 'Geburtstag').replace(/^Geburtstag( von)?:?\s*/i, '').trim() || 'Geburtstag';
+  const GST = [['idee', 'Idee'], ['gekauft', 'gekauft'], ['verpackt', 'verpackt'], ['verschenkt', 'verschenkt']];
+  function Geschenke({ st }) {
+    const [g] = useTable('gifts', 'created_at');
+    const bds = st.events.filter(e => e.typ === 'geburtstag').map(e => ({ e, n: nextBirthday(e) })).sort((a, b) => a.n - b.n);
+    return html`<${Hero} title="Geschenkideen" sub="Zu jedem Geburtstag im Kalender" />
+    <div class="content">${bds.length ? bds.map(({ e, n }) => { const ideen = (g || []).filter(x => x.event_id === e.id); const d = daysUntil(n);
+      return html`<a class="card between" style="text-decoration:none;color:var(--text)" href=${'#/geschenk/' + e.id}><div class="col" style="gap:1px"><span class="b">🎁 ${personOf(e)}</span><span class="tiny">${fmtDate(n)} · ${ideen.length} Idee${ideen.length === 1 ? '' : 'n'}${ideen.some(x => x.status !== 'idee') ? ' · Geschenk da ✓' : ''}</span></div>
+        <span class=${'chip' + (d <= 14 && !ideen.some(x => x.status !== 'idee') ? ' dark' : '')}>${d === 0 ? 'heute!' : 'in ' + d + ' T.'}</span></a>`; })
+      : html`<div class="card small">Noch keine Geburtstage. Trag einen im Kalender ein (Kategorie „Geburtstag“) – dann öffnet sich hier direkt die Geschenkliste.</div>`}
+      <a class="btn ghost" href="#/eintrag">+ Geburtstag eintragen</a></div>`;
+  }
+  function Geschenk({ st, id }) {
+    const [g, save, del] = useTable('gifts', 'created_at'); const [f, setF] = useState({ idee: '', budget: '', link: '' });
+    const e = st.events.find(x => x.id === id);
+    if (!g) return html`<${Hero} title="Geschenk" back="#/geschenke" backLabel="Geschenkideen" /><${Loading} />`;
+    if (!e) return html`<div class="content"><${Back} to="#/geschenke" label="Geschenkideen" /><div class="card">Geburtstag nicht gefunden.</div></div>`;
+    const n = nextBirthday(e); const d = daysUntil(n); const ideen = g.filter(x => x.event_id === id); const person = personOf(e);
+    const add = async ev => { ev.preventDefault(); if (!f.idee.trim()) return; await save({ event_id: id, person, status: 'idee', idee: f.idee.trim(), budget: f.budget ? Number(String(f.budget).replace(',', '.')) : null, link: f.link || null, jahr: n.getFullYear() }); setF({ idee: '', budget: '', link: '' }); };
+    const weiter = x => { const i = GST.findIndex(s => s[0] === x.status); save({ id: x.id, status: GST[(i + 1) % GST.length][0] }); };
+    const buchen = async x => { const betrag = prompt('Was hat das Geschenk gekostet? (€)', x.budget || ''); if (!betrag) return;
+      const r = await sb.from('transactions').insert({ art: 'ausgabe', betrag: Number(String(betrag).replace(',', '.')), datum: isoDate(new Date()), kategorie: 'Geschenke', titel: `Geschenk für ${person}: ${x.idee}` });
+      if (r.error) return toast('Fehler: ' + r.error.message); if (x.status === 'idee') save({ id: x.id, status: 'gekauft' }); toast('In Finanzen unter „Geschenke“ gebucht'); };
+    const nichts = !ideen.some(x => x.status !== 'idee');
+    return html`<${Hero} title=${'🎁 ' + person} back="#/geschenke" backLabel="Geschenkideen" sub=${`${fmtDate(n)} · ${d === 0 ? 'heute!' : 'noch ' + d + ' Tag' + (d === 1 ? '' : 'e')}`}>
+      ${d <= 14 && nichts && html`<div class="row" style="align-items:flex-end"><${Bernd} mood=${d <= 3 ? 'wuetend' : 'zufrieden'} size=${64} /><div class="bubble">${d <= 3 ? 'Noch kein Geschenk und nur noch ' + d + ' Tage? Mutig.' : 'In ' + d + ' Tagen ist es so weit. Zeit, was zu besorgen!'}</div></div>`}</${Hero}>
+    <div class="content">
+      ${ideen.map(x => html`<div class="card col"><div class="between"><span class="b" style="color:var(--text)">${x.idee}</span><button class="back" aria-label="Löschen" onClick=${() => del(x.id)}>✕</button></div>
+        <div class="chips"><button class=${'chip' + (x.status !== 'idee' ? ' ok' : '')} style="border:0;cursor:pointer" onClick=${() => weiter(x)}>${GST.find(s => s[0] === x.status)?.[1]} ›</button>${x.budget && html`<span class="chip">bis ${eur(x.budget)}</span>`}${x.link && html`<a class="chip" href=${x.link} target="_blank" rel="noopener">Link öffnen</a>`}
+          <button class="chip" style="border:0;cursor:pointer" onClick=${() => buchen(x)}>als Ausgabe buchen</button></div></div>`)}
+      ${!ideen.length && html`<div class="card small">Noch keine Idee. Was mag ${person} denn so?</div>`}
+      <form class="card" style="padding:2px 14px" onSubmit=${add}><span class="tiny b" style="display:block;padding-top:10px">NEUE GESCHENKIDEE</span>
+        <label class="field">Idee<input value=${f.idee} placeholder="z. B. Konzertkarten" onInput=${ev => setF({ ...f, idee: ev.target.value })} /></label>
+        <label class="field">Budget (€)<input inputmode="decimal" value=${f.budget} onInput=${ev => setF({ ...f, budget: ev.target.value })} /></label>
+        <label class="field">Link<input type="url" value=${f.link} placeholder="https://…" onInput=${ev => setF({ ...f, link: ev.target.value })} /></label>
+        <div style="padding:10px 0"><button class="btn">Idee speichern</button></div></form></div>`;
+  }
+
+  return { Geschenke, Geschenk, seedVacation, Finanzen, Buchung, Stipendium, Steuern, Nachschlagen, Dokument, Urlaube, Urlaub, Dozierende, Kleiderschrank, Outfits, Brainstorming, Idee, avatar };
 }

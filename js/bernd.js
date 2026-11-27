@@ -17,10 +17,35 @@ const OUTFITS = {
 };
 let n = 0;
 export function berndSVG(mood = 'zufrieden', size = 96, outfit = 'schal') {
+  if (mood === 'dienst') return rtwSVG(size);
   const u = 'b' + (n++);
   const sleeping = mood === 'urlaub' || mood === 'ruhe';
   let s = BODY.replace('__EYES__', sleeping ? '' : EYES).replaceAll('__U__', u);
   s += sleeping ? SLEEP : (EXTRA[mood] || '');
   s += OUTFITS[outfit] || '';
   return `<svg width="${size}" height="${size}" viewBox="0 -6 120 126" role="img" aria-label="Bernd, der Pinguin">${s}</svg>`;
+}
+
+// Bernd im Rettungswagen (während eines Dienstes)
+function rtwSVG(size) {
+  const u = 'r' + (n++);
+  const peng = BODY.replace('__EYES__', EYES).replaceAll('__U__', u) + OUTFITS.schal;
+  const w = Math.round(size * 1.5);
+  return `<svg width="${w}" height="${size}" viewBox="0 0 180 120" role="img" aria-label="Bernd fährt im Rettungswagen mit">
+  <defs><linearGradient id="rk${u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E6E1E2"/></linearGradient>
+  <linearGradient id="rs${u}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#E8590C"/><stop offset="1" stop-color="#F08C3A"/></linearGradient></defs>
+  <ellipse cx="92" cy="112" rx="80" ry="5" fill="#3D1418" opacity="0.15"/>
+  <rect x="8" y="30" width="110" height="70" rx="8" fill="url(#rk${u})" stroke="#C9BFC2"/>
+  <path d="M118 46 h28 q10 0 16 12 l10 18 v18 a6 6 0 0 1 -6 6 h-48z" fill="url(#rk${u})" stroke="#C9BFC2"/>
+  <path d="M124 52 h20 q6 0 10 8 l7 16 h-37z" fill="#BFE3F2" stroke="#8FB9CC"/>
+  <svg x="122" y="44" width="34" height="34" viewBox="0 -6 120 126">${peng}</svg>
+  <rect x="8" y="80" width="164" height="8" fill="url(#rs${u})"/>
+  <rect x="8" y="89" width="164" height="3" fill="#B8323F"/>
+  <text x="63" y="66" text-anchor="middle" font-family="Nunito, Arial, sans-serif" font-weight="900" font-size="22" fill="#B8323F">RTW</text>
+  <rect x="18" y="22" width="22" height="9" rx="3" fill="#2F7DF6"/><rect x="18" y="22" width="22" height="4" rx="2" fill="#8CC0FF" opacity="0.8"/>
+  <rect x="130" y="38" width="16" height="8" rx="3" fill="#2F7DF6"/>
+  <circle cx="40" cy="100" r="12" fill="#2A1F25"/><circle cx="40" cy="100" r="5" fill="#B9B1B4"/>
+  <circle cx="142" cy="100" r="12" fill="#2A1F25"/><circle cx="142" cy="100" r="5" fill="#B9B1B4"/>
+  <rect x="168" y="80" width="6" height="6" rx="2" fill="#FFD27A"/>
+  </svg>`;
 }
