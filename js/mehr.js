@@ -377,6 +377,12 @@ export function makeMehr(C) {
     const Opt = ({ k, v, label, prev }) => html`<button class=${'card col'} style=${`align-items:center;gap:2px;padding:6px 2px;cursor:pointer;${o[k] === v ? 'border:2px solid var(--t-mehr)' : ''}`} onClick=${() => setO({ ...o, [k]: v })}><${Avatar} o=${{ ...o, ...prev, [k]: v }} size=${54} /><span class="tiny b">${label}</span></button>`;
     const Farben = ({ k, list }) => html`<div class="chips">${list.map(c => html`<button aria-label=${'Farbe ' + c} onClick=${() => setO({ ...o, [k]: c })} style=${`width:36px;height:36px;border-radius:18px;background:${c};border:${o[k] === c ? '3px solid var(--text)' : '2px solid #fff'};box-shadow:0 0 0 1px var(--line);cursor:pointer`}></button>`)}</div>`;
     const Tog = ({ k, label }) => html`<label class="field">${label}<input type="checkbox" checked=${o[k]} onChange=${e => setO({ ...o, [k]: e.target.checked })} /></label>`;
+    const uebernehmen = async () => {
+      const r = parseClaude(antwort); if (!r.length) return toast('Konnte keine Fragen erkennen. Bitte die ganze Antwort einfügen.');
+      const prompt = claudePrompt(i.text, st.modules.find(m => m.id === i.module_id)?.name);
+      for (const q of r) await saveQ({ idea_id: id, schema: q.schema, bausteine: q.bausteine, frage: q.frage, ki_protokoll: { tool: 'Claude', datum: new Date().toISOString(), prompt, antwort } });
+      setAntwort(''); toast(r.length + ' Frage' + (r.length > 1 ? 'n' : '') + ' übernommen');
+    };
     const speichern = async () => { await api.upsert('modules', { id: m.id, dozent: { ...(m.dozent || {}), name, spruch, figur: o } }, 'modules'); toast('Gespeichert'); go('#/dozierende'); };
     return html`<div class="hero"><${Back} to="#/dozierende" label="Dozierende" /><div class="row"><${Avatar} o=${o} size=${120} />
       <div class="col" style="flex:1;gap:6px"><div class="seg">${[['w', 'Weiblich'], ['m', 'Männlich']].map(([k, l]) => html`<button class=${o.g === k ? 'on' : ''} onClick=${() => setO({ ...o, g: k })}>${l}</button>`)}</div><span class="small b">${m.name}</span></div></div></div>
@@ -415,6 +421,38 @@ export function makeMehr(C) {
   const frage = (schema, b) => schema === 'PICO'
     ? `Führt ${b.I || '[Intervention]'} bei ${b.P || '[Population]'} im Vergleich zu ${b.C || '[Vergleich]'} zu ${b.O || '[Outcome]'}?`
     : `Wie beurteilen ${b.P || '[Professionals]'} die Auswirkungen von ${b.SE || '[Service]'}${b.L ? ' an/in ' + b.L : ''} auf ${b.I || '[Impact]'} bei ${b.C || '[Zielgruppe]'}${b.E ? ' im Hinblick auf ' + b.E : ''}?`;
+
+  const claudePrompt = (idee, modul) => `Ich studiere Berufspädagogik und Management im Rettungsdienst (B.Sc., Schwerpunkt Pädagogik).${modul ? ` Die Idee gehört zum Modul „${modul}“.` : ''}
+Bitte forme aus meiner Idee je eine wissenschaftliche Forschungsfrage nach dem PICO- und nach dem ECLIPSE-Schema. Schreib auf Deutsch, präzise und prüfbar formuliert.
+
+Meine Idee: ${idee}
+
+Antworte GENAU in diesem Format, ohne weiteren Text davor oder danach:
+PICO
+P: ...
+I: ...
+C: ...
+O: ...
+Frage: ...
+ECLIPSE
+E: ...
+C: ...
+L: ...
+I: ...
+P: ...
+SE: ...
+Frage: ...`;
+  function parseClaude(txt) {
+    const out = []; let cur = null;
+    for (const raw of txt.split(/\r?\n/)) {
+      const l = raw.replace(/^[\s*#>-]+/, '').replace(/\*\*/g, '').trim(); if (!l) continue;
+      if (/^PICO\b/i.test(l) && !l.includes(':')) { cur = { schema: 'PICO', bausteine: {}, frage: '' }; out.push(cur); continue; }
+      if (/^ECLIPSE\b/i.test(l) && !l.includes(':')) { cur = { schema: 'ECLIPSE', bausteine: {}, frage: '' }; out.push(cur); continue; }
+      const m = l.match(/^([A-Za-zÄÖÜäöü]{1,8})\s*[:–-]\s*(.+)$/); if (!m || !cur) continue;
+      const k = m[1].toUpperCase(); if (k === 'FRAGE' || k === 'FORSCHUNGSFRAGE') cur.frage = m[2].replace(/^[„"]|[“"]$/g, ''); else cur.bausteine[k] = m[2];
+    }
+    return out.filter(x => x.frage);
+  }
   function Brainstorming({ st }) {
     const [ideas, save, del] = useTable('ideas', 'created_at'); const [rq] = useTable('research_questions', 'created_at'); const [txt, setTxt] = useState('');
     if (!ideas || !rq) return html`<${Hero} title="Brainstorming" /><${Loading} />`;
@@ -429,7 +467,7 @@ export function makeMehr(C) {
   }
   function Idee({ st, id }) {
     const [ideas, saveI, delI] = useTable('ideas', 'created_at'); const [rq, saveQ, delQ] = useTable('research_questions', 'created_at');
-    const [schema, setSchema] = useState('PICO'); const [b, setB] = useState({});
+    const [schema, setSchema] = useState('PICO'); const [b, setB] = useState({}); const [antwort, setAntwort] = useState('');
     if (!ideas || !rq) return html`<${Hero} title="Idee" back="#/brainstorming" backLabel="Brainstorming" /><${Loading} />`;
     const i = ideas.find(x => x.id === id); if (!i) return html`<div class="content"><${Back} to="#/brainstorming" label="Brainstorming" /><div class="card">Nicht gefunden.</div></div>`;
     const qs = rq.filter(q => q.idea_id === id); const felder = schema === 'PICO' ? PICO : ECLIPSE;
@@ -437,7 +475,7 @@ export function makeMehr(C) {
     return html`<div class="hero"><${Back} to="#/brainstorming" label="Brainstorming" /><span class="tiny b">DEINE IDEE</span><span style="font-size:18px;font-weight:900;line-height:1.25">${i.text}</span>
       <label class="field" style="border:0">Modul<select value=${i.module_id || ''} onChange=${e => saveI({ id, module_id: e.target.value || null })}><option value="">keines</option>${st.modules.map(m => html`<option value=${m.id}>${m.code} ${m.name}</option>`)}</select></label></div>
     <div class="content">
-      ${qs.map(q => html`<div class="card col" style=${q.favorit ? 'border:2px solid var(--t-mehr)' : ''}><div class="between"><span class="b small" style="color:var(--text)">${q.schema}</span>
+      ${qs.map(q => html`<div class="card col" style=${q.favorit ? 'border:2px solid var(--t-mehr)' : ''}><div class="between"><span class="b small" style="color:var(--text)">${q.schema}${q.ki_protokoll ? ' · mit Claude' : ''}</span>
         <div class="row"><button class="back" aria-label="Favorit" onClick=${() => saveQ({ id: q.id, favorit: !q.favorit })}>${q.favorit ? '★' : '☆'}</button><button class="back" aria-label="Kopieren" onClick=${() => { navigator.clipboard?.writeText(q.frage); toast('Kopiert'); }}>⧉</button><button class="back" aria-label="Löschen" onClick=${() => delQ(q.id)}>✕</button></div></div>
         <div class="chips">${Object.entries(q.bausteine || {}).filter(([, v]) => v).map(([k, v]) => html`<span class="chip">${k} ${v}</span>`)}</div>
         <span class="small b" style="color:var(--text);background:var(--bg);border-radius:10px;padding:8px 10px;line-height:1.4">„${q.frage}“</span></div>`)}
@@ -447,7 +485,14 @@ export function makeMehr(C) {
       <div class="card" style="padding:2px 14px">${felder.map(([k, l, ph]) => html`<label class="field"><span><b style="color:var(--accent)">${k}</b> ${l}</span><input value=${b[k] || ''} placeholder=${ph} onInput=${e => setB({ ...b, [k]: e.target.value })} /></label>`)}</div>
       <div class="card small" style="color:var(--text);line-height:1.4">„${frage(schema, b)}“</div>
       <button class="btn" onClick=${speichern}>Frage speichern</button>
-      <span class="tiny">Die automatische Formulierung per KI kommt in einer späteren Etappe. Bis dahin baust du die Frage aus den Bausteinen – die Vorschau passt sich live an. Formulierung bitte immer fachlich prüfen.</span>
+      <span class="h2">Mit Claude formulieren</span>
+      <div class="card col"><span class="small" style="color:var(--text)">1. Tippe auf den Button. Claude öffnet sich mit fertiger Anfrage zu deiner Idee – über dein normales Claude-Konto, ohne Zusatzkosten.</span>
+        <a class="btn small" href=${'https://claude.ai/new?q=' + encodeURIComponent(claudePrompt(i.text, st.modules.find(m => m.id === i.module_id)?.name))} target="_blank" rel="noopener">Claude öffnen</a>
+        <button class="back" style="justify-content:center;font-size:12px" onClick=${() => { navigator.clipboard?.writeText(claudePrompt(i.text, st.modules.find(m => m.id === i.module_id)?.name)); toast('Anfrage kopiert – in Claude einfügen'); }}>Falls die Anfrage nicht erscheint: hier kopieren und einfügen</button>
+        <span class="small" style="color:var(--text)">2. Kopiere Claudes Antwort und füge sie hier ein:</span>
+        <textarea class="input" placeholder="Antwort von Claude einfügen …" value=${antwort} onInput=${e => setAntwort(e.target.value)}></textarea>
+        <button class="btn small" onClick=${uebernehmen}>Fragen übernehmen</button></div>
+      <span class="tiny">Formulierungen bitte immer fachlich prüfen. Die App speichert Anfrage und Antwort, damit du die KI-Nutzung nach Leitfaden angeben kannst.</span>
       <button class="btn ghost small" onClick=${async () => { if (confirm('Idee mit allen Fragen löschen?')) { await delI(id); go('#/brainstorming'); } }}>Idee löschen</button></div>`;
   }
 
